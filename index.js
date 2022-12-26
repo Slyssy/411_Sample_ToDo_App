@@ -1,5 +1,7 @@
 // % Imports ..........................................................
 const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 //% Accessing express and set up server variables .....................
 const app = express();
@@ -8,18 +10,44 @@ const app = express();
 const userRoutes = require('./routes/users');
 const todoRoutes = require('./routes/todos');
 const signupRoutes = require('./routes/signup');
+const signinRoutes = require('./routes/signin');
+
 // # Check .env file for port variables. If they exist, use those if not, use port 5000.
 const PORT = process.env.PORT || 8000;
 
+// % Middleware functions
+function authenticateToken(req, res, next) {
+  // ? Get meta information for request
+  const authHeader = req.headers.authorization;
+  console.log({ auth: req.headers.authorization });
+
+  // ? Store the token in a variable
+  const token = authHeader && authHeader.split(' ')[1];
+  console.log({ token });
+
+  // ? What if no token
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, 'ilovenachos', (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    console.log(req.user);
+    next();
+  });
+}
 // # Use express.json so we can unpack req.body (middleware)
 app.use(express.json());
 
-// # Using userRoutes
-app.use('/users', userRoutes);
-// # Using todoRoutes
-app.use('/todos', todoRoutes);
-// # Using todoRoutes
+// % Defining Routes.................................
 app.use('/signup', signupRoutes);
+
+app.use('/signin', signinRoutes);
+
+// # Users route needs authentication
+app.use('/users', authenticateToken, userRoutes);
+
+// # Todos route needs authentication
+app.use('/todos', authenticateToken, todoRoutes);
 
 // # Set up base route to make sure your app is working.
 app.get('/', (req, res) => {
